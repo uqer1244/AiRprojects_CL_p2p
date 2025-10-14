@@ -40,7 +40,5 @@ if __name__ == "__main__":
     # 테스트를 위해 0.5초마다 가상 GPS 데이터를 생성하여 보냄
     lat, lon = 37.310, 126.830  # 초기 위치
     while True:
-        lat += random.uniform(-0.0005, 0.0005)
-        lon += random.uniform(-0.0005, 0.0005)
         send_gps_data(args.id, lat, lon)
         time.sleep(0.5)
