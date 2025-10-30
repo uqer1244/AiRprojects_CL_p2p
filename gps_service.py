@@ -6,6 +6,7 @@ from datetime import datetime
 import uuid
 import logging
 import time  # 시뮬레이션 및 스케줄러용
+import socket  # ⭐️ [추가 1/4] UDP 브로드캐스트를 위해 임포트
 
 # Flask (기존)
 from flask import Flask, request, render_template_string
@@ -25,11 +26,11 @@ try:
 except ImportError:
     print("경고: 'map_matcher.py'를 찾을 수 없습니다. 임시 MapMatcher를 사용합니다.")
 
+
     class MapMatcher:
         def __init__(self, **kwargs): pass
 
         def get_snapped_coordinate(self, lat, lon): return lat, lon
-
 
 # --- 1. 설정 ---
 MAIN_SERVER_URI = "ws://localhost:8090"
@@ -38,8 +39,10 @@ FLASK_HOST = "0.0.0.0"
 INITIAL_CENTER = {'lat': 37.2959, 'lon': 126.8368}
 
 OSM_FILE_PATH = "your_map.osm"
-INCIDENT_FILE_PATH = "incidents.json" # ⭐️ 이 파일을 읽습니다
+INCIDENT_FILE_PATH = "incidents.json"  # ⭐️ 이 파일을 읽습니다
 INCIDENT_SYNC_INTERVAL_SECONDS = 60  # 1분 (60초) 설정
+
+LISTENER_BROADCAST_PORT = 9999  # ⭐️ [추가 2/4] tts.py가 듣는 포트 (gps_sender.py와 동일)
 
 # 시뮬레이션 설정
 SIM_START_POS = (37.296316, 126.840977)
@@ -191,7 +194,7 @@ def index():
     """
 
 
-# ... (/data 엔드포인트는 수정 없음) ...
+# ⭐️ --- [/data 엔드포인트 수정됨] --- ⭐️
 @app.route("/data", methods=["POST"])
 def receive_data():
     global latest_gps_position, latest_heading_for_gui, CURRENT_MODE
@@ -207,7 +210,14 @@ def receive_data():
                     if CURRENT_MODE == 'vehicle':
                         snap_lat, snap_lon = map_matcher.get_snapped_coordinate(lat, lon)
                         final_lat, final_lon = snap_lat, snap_lon
+
+                    # 1. (기존) 대시보드 및 Unity용 전역 변수 업데이트
                     latest_gps_position = {"latitude": final_lat, "longitude": final_lon}
+
+                    # ⭐️ [추가 4/4]
+                    # 2. (신규) 아이폰에서 받은 실제 데이터를 tts.py로 즉시 브로드캐스트
+                    send_gps_to_listeners(final_lat, final_lon)
+                    # ⭐️ --- [수정 끝] --- ⭐️
 
             elif sensor_name in ["heading", "compass"]:
                 heading = values.get('magneticBearing')
@@ -216,6 +226,9 @@ def receive_data():
     except Exception:
         pass
     return "success"
+
+
+# ⭐️ --- [수정 끝] --- ⭐️
 
 
 #
@@ -275,6 +288,7 @@ def set_mode_http():
     except Exception as e:
         return str(e), 500
 
+
 # ⭐️ --- [sync_incidents 함수 수정됨] --- ⭐️
 def sync_incidents():
     """
@@ -292,7 +306,7 @@ def sync_incidents():
         if isinstance(data, list):
             incidents = data  # ⭐️ 제공된 incidents.json (리스트)을 직접 사용
         elif isinstance(data, dict):
-            incidents = data.get("incidents", []) # ⭐️ 기존 방식 (객체) 호환
+            incidents = data.get("incidents", [])  # ⭐️ 기존 방식 (객체) 호환
         else:
             raise Exception("JSON 형식이 'list' 또는 'dict'가 아닙니다.")
         # ⭐️ [수정 끝]
@@ -324,7 +338,7 @@ def sync_incidents():
                     "title": pin_title,
                     "color_type": color_type
                 }})
-            send_ws(message) # ⭐️ 웹소켓으로 페이로드 전송
+            send_ws(message)  # ⭐️ 웹소켓으로 페이로드 전송
 
             if incident_id not in known_pin_ids:
                 add_count += 1
@@ -350,6 +364,8 @@ def sync_incidents():
         msg = f"⚠️ [Sync] JSON 핀 로딩 중 오류: {e}"
         print(msg)
         return msg, False
+
+
 # ⭐️ --- [수정 끝] --- ⭐️
 
 
@@ -444,6 +460,10 @@ def run_simulation_thread():
             snap_lat, snap_lon = map_matcher.get_snapped_coordinate(lat, lon)
             final_lat, final_lon = snap_lat, snap_lon
         latest_gps_position = {"latitude": final_lat, "longitude": final_lon}
+
+        # ⭐️ 시뮬레이터도 tts.py로 브로드캐스트
+        send_gps_to_listeners(final_lat, final_lon)
+
         print(f"Sim Update Global: lat={final_lat:.6f}, lon={final_lon:.6f}")
         time.sleep(SIM_DELAY_SECONDS)
 
@@ -529,6 +549,28 @@ async def run_websocket_client():
 
 
 # --- 8. 헬퍼 및 메인 실행 ---
+
+# ⭐️ [추가 3/4] gps_sender.py에서 가져온 브로드캐스트 함수
+def send_gps_to_listeners(lat: float, lon: float):
+    """
+    TTS 청취자(tts.py)에게 GPS 데이터를 브로드캐스트합니다.
+    """
+    try:
+        # 브로드캐스트 소켓 생성
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            # 브로드캐스트 옵션 활성화
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+            # 보낼 데이터 (tts.py가 읽는 형식)
+            data = {"latitude": lat, "longitude": lon}
+
+            s.sendto(json.dumps(data).encode('utf-8'), ("<broadcast>", LISTENER_BROADCAST_PORT))
+        return True
+    except Exception as e:
+        # print(f"UDP 브로드캐스트 전송 실패: {e}") # 로그가 너무 많이 찍히는 것을 방지
+        return False
+
+
 # ... (send_ws 헬퍼는 수정 없음) ...
 def send_ws(message: str):
     if async_loop and ws_connection:
@@ -550,7 +592,7 @@ if __name__ == '__main__':
     print("--- 서버 시작 ---")
     print(f"📡 GPS/Dash 컨트롤러 UI: http://127.0.0.1:{FLASK_PORT}/dash/")
     print(f"📍 핀포인트 추가 UI: http://127.0.0.1:{FLASK_PORT}/pinpoint/")
-    print(f"📱 아이폰 데이터 수신: http://<your-ip>:{FLASK_PORT}/data")
+    print(f"📱 아이폰 데이터 수신: http://<your-ip>:{FLASK_PORT}/data (TTS 브로드캐스트 활성화됨)")
     print(f"🛰️  [시뮬레이터] 실행: http://127.0.0.1:{FLASK_PORT}/run_sim")
     print(f"⏰ 'incidents.json' 자동 동기화 활성화 (주기: {INCIDENT_SYNC_INTERVAL_SECONDS}초)")
 

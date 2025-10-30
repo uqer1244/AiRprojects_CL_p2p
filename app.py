@@ -66,15 +66,21 @@ def map_incident_type_to_level_and_color(incident_type: str) -> Tuple[int, int]:
 
 
 # ───────────── 데이터 수집 함수 ─────────────
-def get_all_accidents_from_file() -> List[Dict[str, Any]]:
+# ⭐️ [수정 1/3] force_refresh 파라미터 추가
+def get_all_accidents_from_file(force_refresh: bool = False) -> List[Dict[str, Any]]:
     global _last_file_read_ts, _all_file_items
     now = time.time()
 
-    # 1. 캐시 확인
-    if _all_file_items and (now - _last_file_read_ts) < FILE_CACHE_TTL:
+    # 1. ⭐️ [수정 2/3] 캐시 확인 시 force_refresh 조건 추가
+    if not force_refresh and _all_file_items and (now - _last_file_read_ts) < FILE_CACHE_TTL:
         return _all_file_items
 
-    print(f"[LOCAL] Reading XML data from file: {DATA_FILE_PATH}")
+    # ⭐️ 캐시를 사용하지 않거나 만료되었다면 파일 읽기
+    if force_refresh:
+        print(f"[LOCAL] Forcing cache refresh for TTS...")
+    else:
+        print(f"[LOCAL] Reading XML data from file: {DATA_FILE_PATH}")
+
     items: List[Dict[str, Any]] = []
 
     try:
@@ -121,14 +127,15 @@ def get_all_accidents_from_file() -> List[Dict[str, Any]]:
 
     except FileNotFoundError:
         print(f"[LOCAL] Error: Data file not found at '{DATA_FILE_PATH}'")
-    except ET.ParseError as e: # ⭐️ [변경] XML 파싱 오류를 잡습니다.
+    except ET.ParseError as e:  # ⭐️ [변경] XML 파싱 오류를 잡습니다.
         print(f"[LOCAL] Error: Failed to parse XML from '{DATA_FILE_PATH}'. Error: {e}")
         print(" -> result.txt 파일이 순수한 <result>...</result> 형식이 맞는지 확인하세요.")
     except Exception as e:
         print(f"[LOCAL] Error reading file: {e}")
 
     _all_file_items, _last_file_read_ts = [], now  # 오류 시 캐시 비우기
-    return
+    return []  # ⭐️ 오류 시 빈 리스트 반환
+
 
 # ───────────── ⭐️ [수정된] Flask 라우팅 ─────────────
 
@@ -153,12 +160,13 @@ def receive_data():
 def api_nearby():
     """
     [수정] 특정 좌표 반경 내 사고 데이터를 'incident.json' 파일로 *저장*만 합니다.
+    (이 엔드포인트는 기존 15초 캐시를 계속 사용합니다.)
     """
     user_lat = float(request.args.get("latitude", 37.6155))
     user_lon = float(request.args.get("longitude", 127.0703))
     radius = float(request.args.get("radius", 3))
 
-    all_incidents = get_all_accidents_from_file()
+    all_incidents = get_all_accidents_from_file()  # force_refresh=False (기본값)
 
     filtered_items = [
         item for item in all_incidents
@@ -179,14 +187,18 @@ def api_nearby():
 # ⭐️ --- [새로 추가된 엔드포인트 (TTS 전용)] --- ⭐️
 @app.route("/api/tts_nearby", methods=["GET"])
 def api_tts_nearby():
+    """
+    [수정] TTS용 엔드포인트. 캐시를 무시하고 항상 최신 데이터를 읽어 JSON으로 즉시 반환합니다.
+    """
 
+    # ⭐️ [수정] tts.py가 보내는 'lat', 'lon' 파라미터를 받음
     user_lat = float(request.args.get("lat", 37.6155))
     user_lon = float(request.args.get("lon", 127.0703))
     radius = float(request.args.get("radius", 3))
     k = int(request.args.get("k", DEFAULT_TOPK))
 
-    # 1. 파일에서 모든 데이터를 가져옴
-    all_incidents = get_all_accidents_from_file()
+    # 1. ⭐️ [수정 3/3] force_refresh=True로 설정하여 캐시 무시
+    all_incidents = get_all_accidents_from_file(force_refresh=True)
 
     # 2. 반경 내 사고만 필터링 (app.py v1의 nearest_items 로직과 동일)
     ranked_items = []
@@ -254,6 +266,6 @@ def update_map(n):
 # ───────────── 앱 실행 ─────────────
 if __name__ == "__main__":
     print(f"[BOOT] ⭐️ Data Source: Local File '{DATA_FILE_PATH}'")
-    print(f"[BOOT] FILE_CACHE_TTL={FILE_CACHE_TTL}s")
+    print(f"[BOOT] FILE_CACHE_TTL={FILE_CACHE_TTL}s (TTS 요청은 캐시 무시)")
     # ⭐️ 로컬PC에서만 접속 가능하도록 127.0.0.1로 실행 (보안)
-    app.run(host="127.0.0.1", port=8070, debug=False)
+    app.run(host="0.0.0.0", port=8070, debug=False)

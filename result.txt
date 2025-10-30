@@ -79,4 +79,30 @@
 <important>00</important>
 <updateDate/>
 </record>
+<record>
+<incidentId>L91163237911</incidentId>
+<incidenteTypeCd>2</incidenteTypeCd>
+<incidenteSubTypeCd>8</incidenteSubTypeCd>
+<addressJibun>경기 안산시 상록구 해양동</addressJibun>
+<addressJibunCd>5214041023</addressJibunCd>
+<addressNew/>
+<linkId>3080414300</linkId>
+<locationDataX>126.838844</locationDataX>
+<locationDataY>37.295459</locationDataY>
+<locationTypeCd>C0101</locationTypeCd>
+<incidenteTrafficCd>A0502</incidenteTrafficCd>
+<incidenteGradeCd>A0402</incidenteGradeCd>
+<incidentTitle>[공사] 신축공사 라이언스홀 → 기숙사 거리 통제 </incidentTitle>
+<incTrafficCode>A0502</incTrafficCode>
+<incidentRegionCd>33</incidentRegionCd>
+<startDate>2025년 10월 30일 14시 20분</startDate>
+<endDate>2025년 10월 31일 14시 50분</endDate>
+<lane>갓길</lane>
+<roadName>한양대학로55</roadName>
+<sourceCode>H000</sourceCode>
+<lineLinkId>null</lineLinkId>
+<controlType>0</controlType>
+<important>00</important>
+<updateDate/>
+</record>
 </result>
