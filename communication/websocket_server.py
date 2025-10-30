@@ -1,236 +1,127 @@
-# # websocket_server.py
-# import asyncio
-# import websockets
-
-# class WebSocketServer:
-#     """
-#     websockets v10+ 호환 핸들러: 인자 1개(websocket)
-#     start(): 서버 실행(영구 대기)
-#     broadcast(msg): 연결된 모든 클라이언트로 전송
-#     """
-#     def __init__(self, host="0.0.0.0", port=8090):
-#         self.host = host
-#         self.port = port
-#         self.connected = set()
-
-#     async def _handler(self, websocket):
-#         # 경로가 필요하면 getattr(websocket, "path", None)
-#         self.connected.add(websocket)
-#         try:
-#             async for _ in websocket:
-#                 pass
-#         except websockets.ConnectionClosed:
-#             pass
-#         finally:
-#             self.connected.discard(websocket)
-
-#     async def start(self):
-#         async with websockets.serve(self._handler, self.host, self.port):
-#             print(f"🚀 WebSocket server listening on ws://{self.host}:{self.port}")
-#             await asyncio.Future()  # run forever
-
-#     async def broadcast(self, message: str):
-#         if not self.connected:
-#             return
-#         dead = set()
-#         for ws in list(self.connected):
-#             try:
-#                 await ws.send(message)
-#             except websockets.ConnectionClosed:
-#                 dead.add(ws)
-#         if dead:
-#             self.connected.difference_update(dead)
-
-
-
-
-# src/communication/websocket_server.py
-# import asyncio
-# import json
-# import websockets
-
-# class WebSocketServer:
-#     def __init__(self, host="0.0.0.0", port=8090):
-#         self.host = host
-#         self.port = port
-#         self.connected = set()
-#         self.latest_gps_data = None # HoloLens가 접속 시 바로 받을 수 있도록 최신 GPS 데이터 저장
-
-#     async def _handler(self, websocket):
-#         self.connected.add(websocket)
-#         print(f"🔗 클라이언트 연결: {websocket.remote_address} (총 {len(self.connected)}명)")
-        
-#         # 새 클라이언트(HoloLens 등)에게 최신 GPS 데이터가 있으면 즉시 전송
-#         if self.latest_gps_data:
-#             try:
-#                 await websocket.send(self.latest_gps_data)
-#             except websockets.ConnectionClosed:
-#                 pass
-
-#         try:
-#             # 클라이언트(gps_service.py)로부터 메시지 수신
-#             async for message in websocket:
-#                 try:
-#                     data = json.loads(message)
-#                     # GPS 서비스로부터 GPS 업데이트 메시지를 받으면,
-#                     if data.get("type") == "GPS_POSITION_UPDATE":
-#                         self.latest_gps_data = message # 최신 데이터 저장
-#                         # 이 메시지를 보낸 GPS 서비스를 제외한 모든 클라이언트(HoloLens 등)에게 방송
-#                         broadcast_tasks = [
-#                             ws.send(message) for ws in self.connected if ws != websocket
-#                         ]
-#                         if broadcast_tasks:
-#                             await asyncio.gather(*broadcast_tasks)
-#                 except Exception:
-#                     # 다른 타입의 메시지(예: HoloLens가 보내는 메시지)는 무시
-#                     pass
-#         except websockets.ConnectionClosed:
-#             pass
-#         finally:
-#             self.connected.discard(websocket)
-#             print(f"🔗 클라이언트 연결 해제: {websocket.remote_address} (총 {len(self.connected)}명)")
-
-#     async def start(self):
-#         async with websockets.serve(self._handler, self.host, self.port):
-#             print(f"🚀 WebSocket 서버 listening on ws://{self.host}:{self.port}")
-#             await asyncio.Future()
-
-#     async def broadcast(self, message: str):
-#         """YOLO 위험 경고(RISK_ALERT) 방송용 함수"""
-#         if self.connected:
-#             # ✨ 버그 수정: asyncio.gather를 사용하여 모든 send 작업을 확실히 await 함
-#             # 여러 클라이언트에 동시에 메시지를 보냅니다.
-#             await asyncio.gather(*[ws.send(message) for ws in self.connected])
-
-
-
-
-#실행가능
-# src/communication/websocket_server.py
-# import asyncio
-# import json
-# import websockets
-
-# class WebSocketServer:
-#     def __init__(self, host="0.0.0.0", port=8090):
-#         self.host = host
-#         self.port = port
-#         self.connected = set()
-#         self.latest_gps_data = None
-#         self.pinpoints = {}
-
-#     async def _handler(self, websocket):
-#         self.connected.add(websocket)
-#         print(f"🔗 클라이언트 연결: {websocket.remote_address} (총 {len(self.connected)}명)")
-        
-#         if self.latest_gps_data: await websocket.send(self.latest_gps_data)
-#         for pin_msg in self.pinpoints.values(): await websocket.send(pin_msg)
-
-#         try:
-#             async for message in websocket:
-#                 try:
-#                     data = json.loads(message)
-#                     msg_type = data.get("type")
-
-#                     if msg_type in ["GPS_POSITION_UPDATE", "ADD_PINPOINT"]:
-#                         # ✨ [디버그 로그 1] 메시지 수신 확인
-#                         print(f"Received message of type '{msg_type}' from a client.")
-                        
-#                         if msg_type == "ADD_PINPOINT":
-#                             pin_id = data.get("payload", {}).get("id")
-#                             if pin_id: self.pinpoints[pin_id] = message
-#                         elif msg_type == "GPS_POSITION_UPDATE":
-#                             self.latest_gps_data = message
-                        
-#                         # ✨ [디버그 로그 2] HoloLens로 방송 확인
-#                         print(f"Broadcasting '{msg_type}' to other clients...")
-#                         tasks = [ws.send(message) for ws in self.connected if ws != websocket]
-#                         if tasks: await asyncio.gather(*tasks)
-#                         print("Broadcast complete.")
-
-#                 except Exception as e:
-#                     print(f"Error processing message: {e}")
-#         except websockets.ConnectionClosed:
-#             pass
-#         finally:
-#             self.connected.discard(websocket)
-#             print(f"🔗 클라이언트 연결 해제: {websocket.remote_address} (총 {len(self.connected)}명)")
-
-#     async def start(self):
-#         async with websockets.serve(self._handler, self.host, self.port):
-#             print(f"🚀 WebSocket 서버 listening on ws://{self.host}:{self.port}")
-#             await asyncio.Future()
-
-#     async def broadcast(self, message: str):
-#         if self.connected:
-#             # print(f"Broadcasting RISK_ALERT to {len(self.connected)} clients.") # 필요 시 주석 해제
-#             await asyncio.gather(*[ws.send(message) for ws in self.connected])
-
-
-
-#gps만 heading
-# src/communication/websocket_server.py
 import asyncio
 import json
 import websockets
+from typing import Set, Dict, Optional
 
 class WebSocketServer:
     def __init__(self, host="0.0.0.0", port=8090):
         self.host = host
         self.port = port
-        self.connected = set()
-        self.latest_gps_data = None
-        # 서버에 핀포인트 목록을 저장하여, 새로 접속하는 클라이언트에게도 전송
-        self.pinpoints = {} 
+        self.connected: Set[websockets.WebSocketServerProtocol] = set()
+        self.pinpoints: Dict[str, str] = {} # Key: pin_id, Value: full message string
+        self.latest_gps_data: Optional[Dict] = None # Stores {"latitude": float, "longitude": float}
 
-    async def _handler(self, websocket):
+    async def _handler(self, websocket: websockets.WebSocketServerProtocol):
         self.connected.add(websocket)
-        print(f"🔗 클라이언트 연결: {websocket.remote_address} (총 {len(self.connected)}명)")
-        
-        # 새 클라이언트에게 기존 핀포인트 목록과 최신 GPS 데이터 즉시 전송
-        if self.latest_gps_data:
-            await websocket.send(self.latest_gps_data)
+        remote_ip = websocket.remote_address[0] if websocket.remote_address else "Unknown IP"
+        print(f"🔗 클라이언트 연결: {remote_ip} (총 {len(self.connected)}명)")
+
+        # 연결 시 최근 핀포인트 전송 (기존 로직 유지)
         for pin_msg in self.pinpoints.values():
-            await websocket.send(pin_msg)
+            try:
+                await websocket.send(pin_msg)
+            except websockets.exceptions.ConnectionClosed:
+                break # 이미 끊겼으면 더 이상 보낼 필요 없음
 
         try:
             async for message in websocket:
                 try:
                     data = json.loads(message)
                     msg_type = data.get("type")
-
-                    # 🔥 1. Calibrate 메시지도 방송 목록에 추가
-                    # GPS, 핀포인트, 또는 Calibrate 메시지를 받으면, 보낸이를 제외한 모두에게 방송
-                    if msg_type in ["GPS_POSITION_UPDATE", "ADD_PINPOINT", "CALIBRATE_WITH_HEADING"]:
-                        if msg_type == "ADD_PINPOINT":
-                            pin_id = data.get("payload", {}).get("id")
-                            if pin_id: self.pinpoints[pin_id] = message
-                        elif msg_type == "GPS_POSITION_UPDATE":
-                            self.latest_gps_data = message
-                        
-                        # 메시지를 보낸 클라이언트를 제외한 모든 클라이언트에게 전송
-                        tasks = [ws.send(message) for ws in self.connected if ws != websocket]
-                        if tasks: await asyncio.gather(*tasks)
-
+                    if not msg_type:
+                        print(f"⚠️ 메시지에 'type' 필드 없음: {message[:100]}")
+                        continue
+                except json.JSONDecodeError as e:
+                    print(f"⚠️ JSON 파싱 오류: {e}; raw={message[:120]}")
+                    continue
                 except Exception as e:
-                    print(f"메시지 처리 오류: {e}")
-        except websockets.ConnectionClosed:
-            pass
+                    print(f"⚠️ 메시지 처리 중 예외 발생: {type(e).__name__} - {e}")
+                    continue
+
+                print(f"Received '{msg_type}' from {remote_ip}")
+
+                # GPS 위치 업데이트 처리
+                if msg_type == "GPS_POSITION_UPDATE":
+                    gps_payload = data.get("payload")
+                    if gps_payload and "latitude" in gps_payload and "longitude" in gps_payload:
+                        self.latest_gps_data = {
+                            "latitude": gps_payload["latitude"],
+                            "longitude": gps_payload["longitude"]
+                        }
+                        # GPS 업데이트는 다른 클라이언트에게 중계하지 않음
+                    continue # 다음 메시지 대기
+
+                # 핀포인트 추가/삭제 처리 (최근 상태 저장)
+                elif msg_type == "ADD_PINPOINT":
+                    pin_id = data.get("payload", {}).get("id")
+                    if pin_id:
+                        self.pinpoints[pin_id] = message # 전체 메시지 문자열 저장
+                elif msg_type == "REMOVE_PINPOINT":
+                     pin_id = data.get("payload", {}).get("id")
+                     if pin_id in self.pinpoints:
+                         del self.pinpoints[pin_id]
+
+                # RISK_ALERT 또는 기타 메시지 처리
+                message_to_broadcast = data # 기본적으로 원본 메시지 사용
+
+                if msg_type == "RISK_ALERT" and self.latest_gps_data:
+                    # RISK_ALERT 메시지에 'gps' 필드로 최신 GPS 정보 추가
+                    message_to_broadcast["gps"] = self.latest_gps_data
+                    print(f"    -> RISK_ALERT에 GPS 정보 추가: {self.latest_gps_data}")
+
+                # 수정된 메시지를 JSON 문자열로 변환하여 브로드캐스트
+                modified_message_str = json.dumps(message_to_broadcast, ensure_ascii=False)
+                await self.broadcast(modified_message_str, exclude=websocket)
+
+        except websockets.exceptions.ConnectionClosedError as e:
+            print(f"🔌 클라이언트({remote_ip}) 비정상 연결 종료: {e.code} {e.reason}")
+        except websockets.exceptions.ConnectionClosedOK:
+            print(f"🔌 클라이언트({remote_ip}) 정상 연결 종료됨")
+        except Exception as e:
+            print(f"💥 핸들러에서 예상치 못한 오류 발생 ({remote_ip}): {type(e).__name__} - {e}")
         finally:
             self.connected.discard(websocket)
-            print(f"🔗 클라이언트 연결 해제: {websocket.remote_address} (총 {len(self.connected)}명)")
+            print(f"🔗 클라이언트 연결 해제: {remote_ip} (총 {len(self.connected)}명)")
+
+    async def broadcast(self, message: str, exclude: Optional[websockets.WebSocketServerProtocol] = None):
+        """ 모든 연결된 클라이언트에게 메시지를 전송합니다 (exclude 제외) """
+        if not self.connected:
+            return
+
+        # 메시지 전송 작업 목록 생성
+        tasks = [ws.send(message) for ws in self.connected if ws != exclude]
+        if not tasks:
+            return
+
+        # 모든 작업 실행, 실패한 연결 처리
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # 전송 실패한 연결 정리
+        failed_connections = set()
+        targets = [ws for ws in self.connected if ws != exclude]
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                failed_ws = targets[i]
+                remote_ip = failed_ws.remote_address[0] if failed_ws.remote_address else "Unknown"
+                print(f"🧼 브로드캐스트 실패 및 연결 정리: {remote_ip} ({type(result).__name__})")
+                failed_connections.add(failed_ws)
+
+        # 실패한 연결 제거
+        self.connected -= failed_connections
 
     async def start(self):
-        async with websockets.serve(self._handler, self.host, self.port):
-            print(f"🚀 WebSocket 서버 listening on ws://{self.host}:{self.port}")
-            await asyncio.Future()
+        """ 웹소켓 서버를 시작하고 계속 실행합니다 """
+        try:
+            async with websockets.serve(self._handler, self.host, self.port):
+                print(f"🚀 WebSocket 서버 listening on ws://{self.host}:{self.port}")
+                await asyncio.Future()  # 영원히 실행
+        except OSError as e:
+            print(f"🚨 서버 시작 실패 (포트 {self.port} 사용 중?): {e}")
+        except Exception as e:
+            print(f"🚨 서버 시작 중 예상치 못한 오류: {type(e).__name__} - {e}")
 
-    async def broadcast(self, message: str):
-        """YOLO 위험 경고 등 모든 클라이언트에게 방송하는 함수"""
-        if self.connected:
-            await asyncio.gather(*[ws.send(message) for ws in self.connected])
-
-# # 이 파일을 직접 실행할 경우를 위한 코드
-# if __name__ == "__main__":
-#     server = WebSocketServer()
-#     asyncio.run(server.start())
+if __name__ == "__main__":
+    try:
+        asyncio.run(WebSocketServer().start())
+    except KeyboardInterrupt:
+        print("\n🛑 서버 종료됨.")

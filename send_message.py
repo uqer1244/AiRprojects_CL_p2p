@@ -43,9 +43,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     send_p2p_command(args.from_id, args.message, args.target_id)
-
-if __name__ == "__main__":
-    from_id = "A"
-    message = ">>위험정보표시<<"
-    target_id = None
-    send_p2p_command(from_id, message,target_id)
