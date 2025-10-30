@@ -34,8 +34,8 @@
 <addressJibunCd>1165010200</addressJibunCd>
 <addressNew/>
 <linkId>1210002900</linkId>
-<locationDataX>126.295517</locationDataX>
-<locationDataY>37.839021</locationDataY>
+<locationDataX>126.8412205</locationDataX>
+<locationDataY>37.2958343</locationDataY>
 <locationTypeCd>C0101</locationTypeCd>
 <locationData/>
 <incidenteTrafficCd>A0503</incidenteTrafficCd>
@@ -61,10 +61,9 @@
 <addressJibunCd>5214041023</addressJibunCd>
 <addressNew/>
 <linkId>3080414300</linkId>
-<locationDataX>127.833749</locationDataX>
-<locationDataY>37.296748</locationDataY>
+<locationDataX>126.8412205</locationDataX>
+<locationDataY>37.2958343</locationDataY>
 <locationTypeCd>C0101</locationTypeCd>
-<locationData>POINT(127.296779 35.833758)</locationData>
 <incidenteTrafficCd>A0502</incidenteTrafficCd>
 <incidenteGradeCd>A0402</incidenteGradeCd>
 <incidentTitle>[사고] 호수공원 사거리 추돌사고 호수공원 → 디자인관 통제 </incidentTitle>

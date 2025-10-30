@@ -179,12 +179,9 @@ def api_nearby():
 # ⭐️ --- [새로 추가된 엔드포인트 (TTS 전용)] --- ⭐️
 @app.route("/api/tts_nearby", methods=["GET"])
 def api_tts_nearby():
-    """
-    [신규] tts.py를 위해 특정 반경 내 사고 데이터를 *JSON으로 반환*만 합니다.
-    (파일 저장 안 함)
-    """
-    user_lat = float(request.args.get("latitude", 37.6155))
-    user_lon = float(request.args.get("longitude", 127.0703))
+
+    user_lat = float(request.args.get("lat", 37.6155))
+    user_lon = float(request.args.get("lon", 127.0703))
     radius = float(request.args.get("radius", 3))
     k = int(request.args.get("k", DEFAULT_TOPK))
 

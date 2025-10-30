@@ -98,7 +98,7 @@ def fetch_nearby(server, userid=None, lat=None, lon=None, radius=5.0, k=5, timeo
     if userid:
         url = f"{base}?userid={userid}&radius={radius}&k={k}"
     else:
-        url = f"{base}?lat={lat}&lon={lon}&radius={radius}&k={k}"
+        url = f"{base}?lat={lat}&lon={lon}&radius={radius}&k={k}"  #
 
     # print(f"[HTTP] GET {url}") # 디버깅 시 주석 해제
 
@@ -116,7 +116,7 @@ def main():
     ap.add_argument("--server", default="http://127.0.0.1:8070", help="메인 서버(app.py) URL")
 
     # ⭐️ [수정] radius 기본값을 0.03 (30m)로 변경
-    ap.add_argument("--radius", type=float, default=100, help="반경 km (예: 0.03 = 30m)")
+    ap.add_argument("--radius", type=float, default=101, help="반경 km (예: 0.03 = 30m)")
 
     ap.add_argument("--k", type=int, default=10, help="최대 N건")
 
@@ -131,8 +131,14 @@ def main():
     # --- 1. UDP 소켓 설정 ---
     listener_port = 9999  # gps_sender.py가 방송하는 포트
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    # ⭐️ --- [변경점] --- ⭐️
+    # 다른 스크립트(updater.py 등)와 포트를 공유할 수 있도록 옵션 설정
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    # ⭐️ --- [변경 끝] --- ⭐️
+
     try:
-        s.bind(("", listener_port))
+        s.bind(("", listener_port))  #
     except OSError as e:
         print(f"오류: {listener_port} 포트 바인딩 실패. {e}")
         print("다른 스크립트가 이미 이 포트를 사용 중인지 확인하세요.")
@@ -171,8 +177,8 @@ def main():
             try:
                 udp_data, addr = s.recvfrom(1024)
                 gps_data = json.loads(udp_data.decode('utf-8'))
-                user_lat = float(gps_data.get("latitude"))
-                user_lon = float(gps_data.get("longitude"))
+                user_lat = float(gps_data.get("latitude"))  #
+                user_lon = float(gps_data.get("longitude"))  #
             except json.JSONDecodeError:
                 print(f"[{time.strftime('%H:%M:%S')}] 수신한 GPS 데이터가 JSON 형식이 아닙니다.")
                 continue
@@ -184,7 +190,7 @@ def main():
             try:
                 # ⭐️ 수신한 lat/lon을 fetch_nearby로 전달
                 data = fetch_nearby(args.server,
-                                    lat=user_lat, lon=user_lon,
+                                    lat=user_lat, lon=user_lon,  #
                                     radius=args.radius, k=args.k, timeout=2.0)
 
                 incidents = data.get("incidents") or []
@@ -220,4 +226,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
