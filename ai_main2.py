@@ -128,11 +128,11 @@ class HazardDetector:
     TTC_THRESH_SEC = 1.0      # alert if time-to-contact below this
     SMOOTH_WIN = 5
 
-    def __init__(self, frame_w: int, frame_h: int):
+    def __init__(self, frame_w: int, frame_h: int, dz_width_ratio: float = 0.40, dz_height_ratio: float = 0.35, dz_bottom_margin_ratio: float = 0.05):
         self.w = frame_w
         self.h = frame_h
         self.tracks: Dict[int, TrackState] = {}
-        self.danger_rect = make_safety_zone(frame_w, frame_h)
+        self.danger_rect = make_safety_zone(frame_w, frame_h, width_ratio=dz_width_ratio, height_ratio=dz_height_ratio, bottom_margin_ratio=dz_bottom_margin_ratio)
 
     def ensure(self, tid: int) -> TrackState:
         if tid not in self.tracks:
@@ -351,6 +351,7 @@ async def run(args):
 
     last_t = time.time()
     last_sys_log = 0.0
+    printed_dz = False
 
     # System risk assessor (levels WARN1/WARN2/WARN3). Gate actions on level >= 2.
     sys_assessor = None
@@ -372,7 +373,7 @@ async def run(args):
                 continue
             h, w = frame.shape[:2]
             if detector is None:
-                detector = HazardDetector(w, h)
+                detector = HazardDetector(w, h, args.dz_width, args.dz_height, args.dz_bottom)
             if sys_assessor is None:
                 sys_assessor = RiskAssessor()
                 sys_assessor.set_frame_size(w, h)
@@ -449,7 +450,7 @@ async def run(args):
                 break
             h, w = frame.shape[:2]
             if detector is None:
-                detector = HazardDetector(w, h)
+                detector = HazardDetector(w, h, args.dz_width, args.dz_height, args.dz_bottom)
             if sys_assessor is None:
                 sys_assessor = RiskAssessor()
                 sys_assessor.set_frame_size(w, h)
@@ -522,7 +523,7 @@ async def run(args):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", type=str, default="./yolov8n.pt", help="YOLO model path or name")
-    ap.add_argument("--source", type=str, default="0", help="Camera index or file path")
+    ap.add_argument("--source", type=str, default="2", help="Camera index or file path")
     ap.add_argument("--conf", type=float, default=0.25, help="Confidence threshold")
     ap.add_argument("--ws_host", type=str, default="localhost")
     ap.add_argument("--ws_port", type=int, default=8090)
@@ -535,5 +536,3 @@ if __name__ == "__main__":
     args = ap.parse_args()
 
     asyncio.run(run(args))
-
-

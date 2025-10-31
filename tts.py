@@ -8,7 +8,6 @@ from multiprocessing import Queue, Process
 # --- [TTS 임포트용 함수] ---
 _imported_engine = None
 
-
 def _get_imported_engine():
     global _imported_engine
     if _imported_engine is None:

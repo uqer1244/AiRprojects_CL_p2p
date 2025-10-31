@@ -75,7 +75,7 @@ if __name__ == "__main__":
     parser.add_argument("--id", required=True, help="Node ID of the target P2P client")
     args = parser.parse_args()
 
-    lat, lon = 37.296143, 126.840495
+    lat, lon = 37.295332,126.8391226
     print(f"--- 가상 GPS 데이터 전송 시작 ({args.id} 대상) ---")
     print(f"HTTP Target: gps_service.py ({GPS_SERVICE_DATA_ENDPOINT})")
     print(f"UDP Target (P2P): p2p_client.py ({args.id})")

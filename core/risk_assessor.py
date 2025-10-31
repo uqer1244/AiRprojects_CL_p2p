@@ -20,8 +20,8 @@ def point_in_rect(pt, rect):
 
 
 def make_safety_zone(w: int, h: int,
-                     width_ratio: float = 0.40,
-                     height_ratio: float = 0.35,
+                     width_ratio: float = 0.50,
+                     height_ratio: float = 0.55,
                      bottom_margin_ratio: float = 0.05):
     sw = int(w * width_ratio)
     sh = int(h * height_ratio)
@@ -50,12 +50,12 @@ class RiskAssessor:
     경고2: 최근 5프레임 대비 면적 20% 이상 증가 AND (5중 4프레임 이상 증가 추세)
     경고3: 경고2 충족 상태에서 현재 bbox 면적이 프레임의 50% 이상
     """
-    GROWTH_WINDOW = 5
+    GROWTH_WINDOW = 3
     GROWTH_TOTAL_RATIO = 0.20
     OCCUPANCY_RATIO_FOR_WARN3 = 0.50
 
-    SAFETY_ZONE_W = 0.40
-    SAFETY_ZONE_H = 0.35
+    SAFETY_ZONE_W = 0.50
+    SAFETY_ZONE_H = 0.55
     SAFETY_ZONE_BOTTOM_MARGIN = 0.05
 
     def __init__(self):
